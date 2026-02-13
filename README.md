@@ -19,6 +19,12 @@ View CSV files directly in Obsidian as formatted, interactive tables.
 2. Search for **CSV Viewer**
 3. Click **Install**, then **Enable**
 
+### Obsidian CLI
+
+```bash
+obsidian plugin:install id=csv-viewer enable
+```
+
 ### Manual Installation
 
 1. Download `main.js` and `manifest.json` from the [latest release](https://github.com/jethrojones/obsidian-csv-viewer/releases/latest)
