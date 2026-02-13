@@ -1,0 +1,8 @@
+# Dependencies
+node_modules/
+
+# Build output (included in releases, not in repo)
+main.js
+
+# OS files
+.DS_Store
