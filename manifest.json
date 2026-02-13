@@ -1,7 +1,7 @@
 {
   "id": "csv-viewer",
   "name": "CSV Viewer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.0.0",
   "description": "View CSV files directly in Obsidian as formatted tables",
   "author": "Life Lab",
