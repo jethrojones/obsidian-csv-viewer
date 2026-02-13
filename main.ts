@@ -7,6 +7,7 @@ class CSVView extends TextFileView {
     parsedRows: string[][] = [];
     sortColumn: number = -1;
     sortAscending: boolean = true;
+    editMode: boolean = false;
 
     getViewType(): string {
         return CSV_VIEW_TYPE;
@@ -95,6 +96,17 @@ class CSVView extends TextFileView {
         }
 
         return rows;
+    }
+
+    serializeCSV(rows: string[][]): string {
+        return rows.map(row =>
+            row.map(cell => {
+                if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+                    return '"' + cell.replace(/"/g, '""') + '"';
+                }
+                return cell;
+            }).join(',')
+        ).join('\n');
     }
 
     getSortedRows(): string[][] {
@@ -251,6 +263,46 @@ class CSVView extends TextFileView {
                 text-overflow: ellipsis;
                 white-space: nowrap;
             }
+            .csv-edit-btn {
+                padding: 4px 14px;
+                border: 1px solid var(--background-modifier-border);
+                border-radius: 16px;
+                background: var(--background-primary);
+                color: var(--text-muted);
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.15s ease;
+                user-select: none;
+            }
+            .csv-edit-btn:hover {
+                border-color: var(--interactive-accent);
+                color: var(--text-normal);
+            }
+            .csv-edit-btn.active {
+                background: var(--interactive-accent);
+                color: var(--text-on-accent);
+                border-color: var(--interactive-accent);
+            }
+            .csv-table td[contenteditable] {
+                border: 1px dashed var(--interactive-accent);
+                background: var(--background-primary-alt);
+                white-space: normal;
+                word-wrap: break-word;
+                text-overflow: clip;
+                overflow: visible;
+            }
+            .csv-table td[contenteditable]:focus {
+                outline: 2px solid var(--interactive-accent);
+                outline-offset: -2px;
+                background: var(--background-primary);
+            }
+            .csv-table th.sort-disabled {
+                cursor: default;
+                pointer-events: none;
+            }
+            .csv-table th.sort-disabled:hover {
+                background: var(--background-secondary);
+            }
         `;
 
         const rows = this.getSortedRows();
@@ -266,6 +318,15 @@ class CSVView extends TextFileView {
         const searchInput = toolbar.createEl('input', {
             cls: 'csv-view-search',
             attr: { type: 'text', placeholder: '🔍 Search...' }
+        });
+
+        const editBtn = toolbar.createEl('button', {
+            text: 'Edit',
+            cls: 'csv-edit-btn' + (this.editMode ? ' active' : '')
+        });
+        editBtn.addEventListener('click', () => {
+            this.editMode = !this.editMode;
+            this.renderCSV();
         });
 
         const info = toolbar.createDiv({ cls: 'csv-view-info' });
@@ -290,26 +351,30 @@ class CSVView extends TextFileView {
             
             if (this.sortColumn === index) {
                 th.addClass('sorted');
-                thContent.createSpan({ 
-                    text: this.sortAscending ? '▲' : '▼', 
-                    cls: 'sort-indicator' 
+                thContent.createSpan({
+                    text: this.sortAscending ? '▲' : '▼',
+                    cls: 'sort-indicator'
                 });
             }
 
-            th.addEventListener('click', () => {
-                if (this.sortColumn === index) {
-                    if (this.sortAscending) {
-                        this.sortAscending = false;
+            if (this.editMode) {
+                th.addClass('sort-disabled');
+            } else {
+                th.addEventListener('click', () => {
+                    if (this.sortColumn === index) {
+                        if (this.sortAscending) {
+                            this.sortAscending = false;
+                        } else {
+                            this.sortColumn = -1;
+                            this.sortAscending = true;
+                        }
                     } else {
-                        this.sortColumn = -1;
+                        this.sortColumn = index;
                         this.sortAscending = true;
                     }
-                } else {
-                    this.sortColumn = index;
-                    this.sortAscending = true;
-                }
-                this.renderCSV();
-            });
+                    this.renderCSV();
+                });
+            }
         });
 
         // Body
@@ -317,8 +382,41 @@ class CSVView extends TextFileView {
         for (let i = 1; i < rows.length; i++) {
             const tr = tbody.createEl('tr');
             for (let j = 0; j < headers.length; j++) {
-                const cell = rows[i][j] || '';
-                tr.createEl('td', { text: cell, attr: { title: cell } });
+                const cellValue = rows[i][j] || '';
+                const td = tr.createEl('td', { text: cellValue, attr: { title: cellValue } });
+
+                if (this.editMode) {
+                    td.setAttribute('contenteditable', 'plaintext-only');
+                    td.removeAttribute('title');
+
+                    // Find the original row index in parsedRows
+                    const originalRowIndex = this.sortColumn >= 0
+                        ? this.parsedRows.indexOf(rows[i])
+                        : i;
+
+                    td.addEventListener('blur', () => {
+                        const newValue = td.textContent || '';
+                        if (newValue !== cellValue) {
+                            this.parsedRows[originalRowIndex][j] = newValue;
+                            this.data = this.serializeCSV(this.parsedRows);
+                            this.requestSave();
+                        }
+                    });
+
+                    td.addEventListener('keydown', (e: KeyboardEvent) => {
+                        if (e.key === 'Tab') {
+                            e.preventDefault();
+                            const allCells = Array.from(tbody.querySelectorAll('td[contenteditable]'));
+                            const currentIndex = allCells.indexOf(td);
+                            const nextIndex = e.shiftKey ? currentIndex - 1 : currentIndex + 1;
+                            if (nextIndex >= 0 && nextIndex < allCells.length) {
+                                (allCells[nextIndex] as HTMLElement).focus();
+                            }
+                        } else if (e.key === 'Escape') {
+                            td.blur();
+                        }
+                    });
+                }
             }
         }
 
