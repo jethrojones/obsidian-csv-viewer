@@ -6,6 +6,7 @@ View CSV files directly in Obsidian as formatted, interactive tables.
 
 - **CSV Parsing** — RFC-compliant parser handling quoted fields, escaped quotes, and mixed line endings
 - **Interactive Tables** — Click column headers to sort ascending/descending with smart numeric detection
+- **Inline Editing** — Toggle edit mode to modify cells directly in the table. Changes auto-save on blur. Tab/Shift+Tab to navigate between cells, Escape to deselect.
 - **Search & Filter** — Real-time search across all columns with match highlighting
 - **Theme Support** — Uses Obsidian's CSS variables so tables match your light or dark theme
 - **Responsive Layout** — Sticky headers, horizontal scrolling, and text-overflow handling for wide data
@@ -38,6 +39,7 @@ Once enabled, open any `.csv` file in your vault and it will render as a table a
 
 - **Sort** — Click any column header. Click again to reverse the sort direction.
 - **Search** — Type in the search box to filter rows. Matching cells are highlighted.
+- **Edit** — Click the Edit button in the toolbar to toggle edit mode. Click any cell to modify its contents. Changes save automatically when you click away. Sorting is disabled while editing.
 
 ## Development
 
