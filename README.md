@@ -1,6 +1,6 @@
-# CSV Viewer for Obsidian
+# CSV Viewer
 
-View CSV files directly in Obsidian as formatted, interactive tables.
+View and edit CSV files as formatted, interactive tables.
 
 ## Features
 
