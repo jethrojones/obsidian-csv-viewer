@@ -1,4 +1,5 @@
-import { Plugin, WorkspaceLeaf, TextFileView, TFile } from 'obsidian';
+import { Plugin, TextFileView } from 'obsidian';
+import { parseCSV, serializeCSV } from './csv-parser';
 
 const CSV_VIEW_TYPE = 'csv-view';
 
@@ -35,7 +36,7 @@ class CSVView extends TextFileView {
 
     setViewData(data: string, clear: boolean): void {
         this.data = data;
-        this.parsedRows = this.parseCSV(data);
+        this.parsedRows = parseCSV(data);
         this.sortColumn = -1;
         this.sortAscending = true;
         this.renderCSV();
@@ -45,68 +46,6 @@ class CSVView extends TextFileView {
         this.data = '';
         this.parsedRows = [];
         this.contentEl.empty();
-    }
-
-    parseCSV(csvText: string): string[][] {
-        const rows: string[][] = [];
-        let currentRow: string[] = [];
-        let currentCell = '';
-        let inQuotes = false;
-
-        for (let i = 0; i < csvText.length; i++) {
-            const char = csvText[i];
-            const nextChar = csvText[i + 1];
-
-            if (inQuotes) {
-                if (char === '"') {
-                    if (nextChar === '"') {
-                        currentCell += '"';
-                        i++;
-                    } else {
-                        inQuotes = false;
-                    }
-                } else {
-                    currentCell += char;
-                }
-            } else {
-                if (char === '"') {
-                    inQuotes = true;
-                } else if (char === ',') {
-                    currentRow.push(currentCell.trim());
-                    currentCell = '';
-                } else if (char === '\n' || (char === '\r' && nextChar === '\n')) {
-                    currentRow.push(currentCell.trim());
-                    if (currentRow.length > 0 && currentRow.some(cell => cell !== '')) {
-                        rows.push(currentRow);
-                    }
-                    currentRow = [];
-                    currentCell = '';
-                    if (char === '\r') i++;
-                } else if (char !== '\r') {
-                    currentCell += char;
-                }
-            }
-        }
-
-        if (currentCell || currentRow.length > 0) {
-            currentRow.push(currentCell.trim());
-            if (currentRow.some(cell => cell !== '')) {
-                rows.push(currentRow);
-            }
-        }
-
-        return rows;
-    }
-
-    serializeCSV(rows: string[][]): string {
-        return rows.map(row =>
-            row.map(cell => {
-                if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
-                    return '"' + cell.replace(/"/g, '""') + '"';
-                }
-                return cell;
-            }).join(',')
-        ).join('\n');
     }
 
     getSortedRows(): string[][] {
@@ -398,7 +337,7 @@ class CSVView extends TextFileView {
                         const newValue = td.textContent || '';
                         if (newValue !== cellValue) {
                             this.parsedRows[originalRowIndex][j] = newValue;
-                            this.data = this.serializeCSV(this.parsedRows);
+                            this.data = serializeCSV(this.parsedRows);
                             this.requestSave();
                         }
                     });
