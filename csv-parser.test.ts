@@ -52,12 +52,21 @@ describe('parseCSV', () => {
         ]);
     });
 
-    it('trims whitespace from cells', () => {
+    it('trims whitespace from unquoted cells', () => {
         const csv = 'Name,  Age  \n  Alice  ,  30  ';
         const result = parseCSV(csv);
         expect(result).toEqual([
             ['Name', 'Age'],
             ['Alice', '30']
+        ]);
+    });
+
+    it('preserves whitespace in quoted cells', () => {
+        const csv = 'Name,Value\n"  Alice  ","  30  "';
+        const result = parseCSV(csv);
+        expect(result).toEqual([
+            ['Name', 'Value'],
+            ['  Alice  ', '  30  ']
         ]);
     });
 

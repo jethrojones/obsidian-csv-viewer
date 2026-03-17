@@ -1,12 +1,13 @@
 /**
  * Parse CSV text into a 2D array of strings.
- * RFC 4180 compliant - handles quoted fields, escaped quotes, mixed line endings.
+ * RFC 4180 compliant - handles quoted fields, escaped quotes, and mixed line endings.
  */
 export function parseCSV(csvText: string): string[][] {
     const rows: string[][] = [];
     let currentRow: string[] = [];
     let currentCell = '';
     let inQuotes = false;
+    let wasQuoted = false;
 
     for (let i = 0; i < csvText.length; i++) {
         const char = csvText[i];
@@ -28,16 +29,19 @@ export function parseCSV(csvText: string): string[][] {
         } else {
             if (char === '"') {
                 inQuotes = true;
+                wasQuoted = true;
             } else if (char === ',') {
-                currentRow.push(currentCell.trim());
+                currentRow.push(wasQuoted ? currentCell : currentCell.trim());
                 currentCell = '';
+                wasQuoted = false;
             } else if (char === '\n' || (char === '\r' && nextChar === '\n')) {
-                currentRow.push(currentCell.trim());
+                currentRow.push(wasQuoted ? currentCell : currentCell.trim());
                 if (currentRow.length > 0 && currentRow.some(cell => cell !== '')) {
                     rows.push(currentRow);
                 }
                 currentRow = [];
                 currentCell = '';
+                wasQuoted = false;
                 if (char === '\r') i++;
             } else if (char !== '\r') {
                 currentCell += char;
@@ -47,7 +51,7 @@ export function parseCSV(csvText: string): string[][] {
 
     // Handle last row (no trailing newline)
     if (currentCell || currentRow.length > 0) {
-        currentRow.push(currentCell.trim());
+        currentRow.push(wasQuoted ? currentCell : currentCell.trim());
         if (currentRow.some(cell => cell !== '')) {
             rows.push(currentRow);
         }

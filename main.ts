@@ -48,204 +48,55 @@ class CSVView extends TextFileView {
         this.contentEl.empty();
     }
 
-    getSortedRows(): string[][] {
-        if (this.parsedRows.length < 2) return this.parsedRows;
-        
-        const headers = this.parsedRows[0];
-        const dataRows = this.parsedRows.slice(1);
-        
-        if (this.sortColumn < 0) {
-            return [headers, ...dataRows];
+    getSortedRows(): { rows: string[][], originalIndices: number[] } {
+        if (this.parsedRows.length < 2) {
+            return {
+                rows: this.parsedRows,
+                originalIndices: this.parsedRows.map((_, i) => i)
+            };
         }
 
-        const sorted = [...dataRows].sort((a, b) => {
-            const aVal = a[this.sortColumn] || '';
-            const bVal = b[this.sortColumn] || '';
-            
-            // Try numeric sort first
+        const headers = this.parsedRows[0];
+        const dataRows = this.parsedRows.slice(1);
+        const originalIndices = dataRows.map((_, i) => i + 1); // 1-based (skip header)
+
+        if (this.sortColumn < 0) {
+            return {
+                rows: [headers, ...dataRows],
+                originalIndices: [0, ...originalIndices]
+            };
+        }
+
+        const indexedRows = dataRows.map((row, i) => ({ row, originalIndex: i + 1 }));
+
+        indexedRows.sort((a, b) => {
+            const aVal = a.row[this.sortColumn] || '';
+            const bVal = b.row[this.sortColumn] || '';
+
             const aNum = parseFloat(aVal.replace(/[,$%]/g, ''));
             const bNum = parseFloat(bVal.replace(/[,$%]/g, ''));
-            
+
             if (!isNaN(aNum) && !isNaN(bNum)) {
                 return this.sortAscending ? aNum - bNum : bNum - aNum;
             }
-            
-            // Fall back to string sort
+
             const comparison = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' });
             return this.sortAscending ? comparison : -comparison;
         });
 
-        return [headers, ...sorted];
+        return {
+            rows: [headers, ...indexedRows.map(r => r.row)],
+            originalIndices: [0, ...indexedRows.map(r => r.originalIndex)]
+        };
     }
 
     renderCSV() {
         this.contentEl.empty();
 
         const container = this.contentEl.createDiv({ cls: 'csv-view-content' });
-        
-        const style = container.createEl('style');
-        style.textContent = `
-            .csv-view-content {
-                padding: 20px;
-                overflow: auto;
-                height: 100%;
-                font-family: var(--font-interface);
-            }
-            .csv-view-toolbar {
-                margin-bottom: 16px;
-                display: flex;
-                gap: 16px;
-                align-items: center;
-            }
-            .csv-view-search {
-                padding: 8px 12px;
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 6px;
-                background: var(--background-primary);
-                color: var(--text-normal);
-                font-size: 14px;
-                width: 250px;
-                transition: border-color 0.15s ease;
-            }
-            .csv-view-search:focus {
-                outline: none;
-                border-color: var(--interactive-accent);
-            }
-            .csv-view-search::placeholder {
-                color: var(--text-faint);
-            }
-            .csv-view-info {
-                color: var(--text-muted);
-                font-size: 13px;
-            }
-            .csv-table-wrapper {
-                border-radius: 8px;
-                overflow: hidden;
-                border: 1px solid var(--background-modifier-border);
-            }
-            .csv-table-scroll {
-                max-height: calc(100vh - 180px);
-                overflow: auto;
-            }
-            .csv-table {
-                border-collapse: collapse;
-                width: 100%;
-                font-size: 13px;
-            }
-            .csv-table th {
-                background: var(--background-secondary);
-                font-weight: 500;
-                position: sticky;
-                top: 0;
-                z-index: 10;
-                cursor: pointer;
-                user-select: none;
-                transition: background 0.15s ease;
-                border-bottom: 2px solid var(--background-modifier-border);
-            }
-            .csv-table th:hover {
-                background: var(--background-modifier-hover);
-            }
-            .csv-table th.sorted {
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
-            }
-            .csv-table th, .csv-table td {
-                padding: 10px 14px;
-                text-align: left;
-                border-right: 1px solid var(--background-modifier-border);
-            }
-            .csv-table th:last-child, .csv-table td:last-child {
-                border-right: none;
-            }
-            .csv-table td {
-                max-width: 300px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                border-bottom: 1px solid var(--background-modifier-border-hover);
-            }
-            .csv-table tr:last-child td {
-                border-bottom: none;
-            }
-            .csv-table tbody tr {
-                transition: background 0.1s ease;
-            }
-            .csv-table tbody tr:hover {
-                background: var(--background-modifier-hover);
-            }
-            .csv-table tbody tr:nth-child(even) {
-                background: var(--background-secondary-alt);
-            }
-            .csv-table tbody tr:nth-child(even):hover {
-                background: var(--background-modifier-hover);
-            }
-            .csv-table td:hover {
-                white-space: normal;
-                word-wrap: break-word;
-            }
-            .csv-highlight {
-                background: var(--text-highlight-bg) !important;
-            }
-            .sort-indicator {
-                margin-left: 6px;
-                opacity: 0.7;
-                font-size: 10px;
-            }
-            .th-content {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-            }
-            .th-text {
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            .csv-edit-btn {
-                padding: 4px 14px;
-                border: 1px solid var(--background-modifier-border);
-                border-radius: 16px;
-                background: var(--background-primary);
-                color: var(--text-muted);
-                font-size: 13px;
-                cursor: pointer;
-                transition: all 0.15s ease;
-                user-select: none;
-            }
-            .csv-edit-btn:hover {
-                border-color: var(--interactive-accent);
-                color: var(--text-normal);
-            }
-            .csv-edit-btn.active {
-                background: var(--interactive-accent);
-                color: var(--text-on-accent);
-                border-color: var(--interactive-accent);
-            }
-            .csv-table td[contenteditable] {
-                border: 1px dashed var(--interactive-accent);
-                background: var(--background-primary-alt);
-                white-space: normal;
-                word-wrap: break-word;
-                text-overflow: clip;
-                overflow: visible;
-            }
-            .csv-table td[contenteditable]:focus {
-                outline: 2px solid var(--interactive-accent);
-                outline-offset: -2px;
-                background: var(--background-primary);
-            }
-            .csv-table th.sort-disabled {
-                cursor: default;
-                pointer-events: none;
-            }
-            .csv-table th.sort-disabled:hover {
-                background: var(--background-secondary);
-            }
-        `;
 
-        const rows = this.getSortedRows();
-        
+        const { rows, originalIndices } = this.getSortedRows();
+
         if (rows.length === 0) {
             container.createEl('p', { text: 'No data in CSV file', cls: 'csv-view-info' });
             return;
@@ -253,7 +104,7 @@ class CSVView extends TextFileView {
 
         // Toolbar
         const toolbar = container.createDiv({ cls: 'csv-view-toolbar' });
-        
+
         const searchInput = toolbar.createEl('input', {
             cls: 'csv-view-search',
             attr: { type: 'text', placeholder: '🔍 Search...' }
@@ -277,17 +128,17 @@ class CSVView extends TextFileView {
         const tableWrapper = container.createDiv({ cls: 'csv-table-wrapper' });
         const tableScroll = tableWrapper.createDiv({ cls: 'csv-table-scroll' });
         const table = tableScroll.createEl('table', { cls: 'csv-table' });
-        
+
         // Header
         const thead = table.createEl('thead');
         const headerRow = thead.createEl('tr');
         const headers = rows[0] || [];
-        
+
         headers.forEach((header, index) => {
             const th = headerRow.createEl('th');
             const thContent = th.createDiv({ cls: 'th-content' });
             thContent.createSpan({ text: header, cls: 'th-text', attr: { title: header } });
-            
+
             if (this.sortColumn === index) {
                 th.addClass('sorted');
                 thContent.createSpan({
@@ -320,18 +171,23 @@ class CSVView extends TextFileView {
         const tbody = table.createEl('tbody');
         for (let i = 1; i < rows.length; i++) {
             const tr = tbody.createEl('tr');
+            const originalRowIndex = originalIndices[i];
+
             for (let j = 0; j < headers.length; j++) {
                 const cellValue = rows[i][j] || '';
                 const td = tr.createEl('td', { text: cellValue, attr: { title: cellValue } });
 
                 if (this.editMode) {
-                    td.setAttribute('contenteditable', 'plaintext-only');
+                    // Use contenteditable="true" for broad Obsidian/Electron compatibility;
+                    // intercept paste to strip rich text.
+                    td.setAttribute('contenteditable', 'true');
                     td.removeAttribute('title');
 
-                    // Find the original row index in parsedRows
-                    const originalRowIndex = this.sortColumn >= 0
-                        ? this.parsedRows.indexOf(rows[i])
-                        : i;
+                    td.addEventListener('paste', (e: ClipboardEvent) => {
+                        e.preventDefault();
+                        const text = e.clipboardData?.getData('text/plain') || '';
+                        document.execCommand('insertText', false, text);
+                    });
 
                     td.addEventListener('blur', () => {
                         const newValue = td.textContent || '';
@@ -404,10 +260,9 @@ export default class CSVViewerPlugin extends Plugin {
     async onload() {
         this.registerView(CSV_VIEW_TYPE, (leaf) => new CSVView(leaf));
         this.registerExtensions(['csv'], CSV_VIEW_TYPE);
-        console.log('CSV Viewer plugin loaded');
     }
 
     async onunload() {
-        console.log('CSV Viewer plugin unloaded');
+        // no-op
     }
 }
