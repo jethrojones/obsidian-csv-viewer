@@ -115,6 +115,10 @@
     background: var(--background-modifier-hover);
 }
 
+.csv-table tbody tr.csv-row-hidden {
+    display: none;
+}
+
 .csv-table td:hover {
     white-space: normal;
     word-wrap: break-word;

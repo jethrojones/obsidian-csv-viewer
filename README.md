@@ -28,9 +28,9 @@ obsidian plugin:install id=csv-viewer enable
 
 ### Manual Installation
 
-1. Download `main.js` and `manifest.json` from the [latest release](https://github.com/jethrojones/obsidian-csv-viewer/releases/latest)
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/jethrojones/obsidian-csv-viewer/releases/latest)
 2. Create a folder called `csv-viewer` in your vault's `.obsidian/plugins/` directory
-3. Copy both files into that folder
+3. Copy all three files into that folder
 4. Reload Obsidian and enable the plugin in **Settings → Community Plugins**
 
 ## Usage
@@ -40,6 +40,10 @@ Once enabled, open any `.csv` file in your vault and it will render as a table a
 - **Sort** — Click any column header. Click again to reverse the sort direction.
 - **Search** — Type in the search box to filter rows. Matching cells are highlighted.
 - **Edit** — Click the Edit button in the toolbar to toggle edit mode. Click any cell to modify its contents. Changes save automatically when you click away. Sorting is disabled while editing.
+
+## Privacy
+
+CSV Viewer works entirely inside your vault. It does not make network requests, collect telemetry, show ads, require an account, or read files outside the CSV file opened in Obsidian.
 
 ## Development
 

@@ -1,7 +1,7 @@
 {
   "id": "csv-viewer",
   "name": "CSV Viewer",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "minAppVersion": "1.4.0",
   "description": "View and edit CSV files as formatted, interactive tables.",
   "author": "Life Lab",

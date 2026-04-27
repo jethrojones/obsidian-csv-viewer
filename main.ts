@@ -22,12 +22,14 @@ class CSVView extends TextFileView {
         return 'table';
     }
 
-    async onOpen() {
+    onOpen(): Promise<void> {
         this.contentEl.addClass('csv-view-container');
+        return Promise.resolve();
     }
 
-    async onClose() {
+    onClose(): Promise<void> {
         this.contentEl.empty();
+        return Promise.resolve();
     }
 
     getViewData(): string {
@@ -186,7 +188,15 @@ class CSVView extends TextFileView {
                     td.addEventListener('paste', (e: ClipboardEvent) => {
                         e.preventDefault();
                         const text = e.clipboardData?.getData('text/plain') || '';
-                        document.execCommand('insertText', false, text);
+                        const selection = window.getSelection();
+                        if (!selection || selection.rangeCount === 0) return;
+
+                        const range = selection.getRangeAt(0);
+                        range.deleteContents();
+                        range.insertNode(document.createTextNode(text));
+                        range.collapse(false);
+                        selection.removeAllRanges();
+                        selection.addRange(range);
                     });
 
                     td.addEventListener('blur', () => {
@@ -240,10 +250,10 @@ class CSVView extends TextFileView {
                 });
 
                 if (matches || !query) {
-                    (row as HTMLElement).style.display = '';
+                    row.removeClass('csv-row-hidden');
                     visibleCount++;
                 } else {
-                    (row as HTMLElement).style.display = 'none';
+                    row.addClass('csv-row-hidden');
                 }
             });
 
@@ -257,12 +267,8 @@ class CSVView extends TextFileView {
 }
 
 export default class CSVViewerPlugin extends Plugin {
-    async onload() {
+    onload() {
         this.registerView(CSV_VIEW_TYPE, (leaf) => new CSVView(leaf));
         this.registerExtensions(['csv'], CSV_VIEW_TYPE);
-    }
-
-    async onunload() {
-        // no-op
     }
 }
