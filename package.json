@@ -21,6 +21,8 @@
   "author": "Life Lab",
   "license": "MIT",
   "devDependencies": {
+    "@emnapi/core": "^1.10.0",
+    "@emnapi/runtime": "^1.10.0",
     "@types/node": "^20.19.35",
     "@typescript-eslint/parser": "^8.59.3",
     "esbuild": "0.28.0",
