@@ -124,8 +124,8 @@
     word-wrap: break-word;
 }
 
-.csv-highlight {
-    background: var(--text-highlight-bg) !important;
+.csv-table td.csv-highlight {
+    background: var(--text-highlight-bg);
 }
 
 .sort-indicator {

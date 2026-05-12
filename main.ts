@@ -55,7 +55,7 @@ class CSVView extends TextFileView {
         return this.data;
     }
 
-    setViewData(data: string, clear: boolean): void {
+    setViewData(data: string, _clear: boolean): void {
         this.data = data;
         this.parsedRows = parseCSV(data);
         this.sortColumn = -1;
@@ -212,7 +212,7 @@ class CSVView extends TextFileView {
 
                         const range = selection.getRangeAt(0);
                         range.deleteContents();
-                        range.insertNode(document.createTextNode(text));
+                        range.insertNode(td.ownerDocument.createTextNode(text));
                         range.collapse(false);
                         selection.removeAllRanges();
                         selection.addRange(range);
@@ -322,7 +322,7 @@ class LogView extends TextFileView {
         return this.data;
     }
 
-    setViewData(data: string, clear: boolean): void {
+    setViewData(data: string, _clear: boolean): void {
         this.data = data;
         this.lines = data.split('\n').map((line, index) => ({
             number: index + 1,
@@ -568,11 +568,27 @@ export default class CSVViewerPlugin extends Plugin {
     }
 
     async loadSettings(): Promise<void> {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        const savedSettings: unknown = await this.loadData();
+        this.settings = {
+            ...DEFAULT_SETTINGS,
+            ...this.parseSettings(savedSettings)
+        };
     }
 
     async saveSettings(): Promise<void> {
         await this.saveData(this.settings);
+    }
+
+    parseSettings(settings: unknown): Partial<CSVViewerSettings> {
+        if (!settings || typeof settings !== 'object') {
+            return {};
+        }
+
+        const candidate = settings as Partial<Record<keyof CSVViewerSettings, unknown>>;
+        return {
+            ...(typeof candidate.enableCsvViewer === 'boolean' ? { enableCsvViewer: candidate.enableCsvViewer } : {}),
+            ...(typeof candidate.enableLogViewer === 'boolean' ? { enableLogViewer: candidate.enableLogViewer } : {})
+        };
     }
 }
 
