@@ -52,5 +52,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
-          gh release view "$TAG_NAME" >/dev/null 2>&1 || gh release create "$TAG_NAME" --verify-tag --title "$TAG_NAME" --notes ""
+          gh release view "$TAG_NAME" >/dev/null 2>&1 || gh release create "$TAG_NAME" --verify-tag --title "$TAG_NAME" --generate-notes
           gh release upload "$TAG_NAME" main.js manifest.json styles.css --clobber
