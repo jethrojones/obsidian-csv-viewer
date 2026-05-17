@@ -74,3 +74,54 @@ export function serializeCSV(rows: string[][]): string {
         }).join(',')
     ).join('\n');
 }
+
+export type TranscriptFormat = 'srt' | 'vtt';
+
+export interface TranscriptCue {
+    number: number;
+    start: string;
+    end: string;
+    text: string;
+}
+
+/**
+ * Parse SRT or WebVTT text into display-ready transcript cues.
+ */
+export function parseTranscript(transcriptText: string, _format: TranscriptFormat): TranscriptCue[] {
+    const blocks = transcriptText
+        .replace(/\r\n?/g, '\n')
+        .split(/\n{2,}/)
+        .map(block => block.split('\n').map(line => line.trim()).filter(line => line.length > 0));
+
+    const cues: TranscriptCue[] = [];
+    const timestampPattern = /((?:\d{2}:)?\d{2}:\d{2}[.,]\d{3})\s+-->\s+((?:\d{2}:)?\d{2}:\d{2}[.,]\d{3})/;
+
+    for (const block of blocks) {
+        if (block.length === 0) continue;
+
+        const firstLine = block[0].toUpperCase();
+        if (
+            firstLine.startsWith('WEBVTT') ||
+            firstLine.startsWith('NOTE') ||
+            firstLine.startsWith('STYLE') ||
+            firstLine.startsWith('REGION')
+        ) {
+            continue;
+        }
+
+        const timingLineIndex = block.findIndex(line => line.includes('-->'));
+        if (timingLineIndex === -1) continue;
+
+        const timingMatch = block[timingLineIndex].match(timestampPattern);
+        if (!timingMatch) continue;
+
+        cues.push({
+            number: cues.length + 1,
+            start: timingMatch[1],
+            end: timingMatch[2],
+            text: block.slice(timingLineIndex + 1).join('\n')
+        });
+    }
+
+    return cues;
+}

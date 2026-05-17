@@ -1,17 +1,22 @@
 import { App, Notice, Plugin, PluginSettingTab, Setting, TextFileView } from 'obsidian';
-import { parseCSV, serializeCSV } from './csv-parser';
+import { parseCSV, parseTranscript, serializeCSV, TranscriptCue, TranscriptFormat } from './csv-parser';
 
 const CSV_VIEW_TYPE = 'csv-view';
 const LOG_VIEW_TYPE = 'log-view';
+const TRANSCRIPT_VIEW_TYPE = 'transcript-view';
 
 interface CSVViewerSettings {
     enableCsvViewer: boolean;
     enableLogViewer: boolean;
+    enableVttViewer: boolean;
+    enableSrtViewer: boolean;
 }
 
 const DEFAULT_SETTINGS: CSVViewerSettings = {
     enableCsvViewer: true,
-    enableLogViewer: true
+    enableLogViewer: true,
+    enableVttViewer: true,
+    enableSrtViewer: true
 };
 
 type LogLevel = 'error' | 'warning' | 'info' | 'debug' | 'default';
@@ -547,6 +552,162 @@ class LogView extends TextFileView {
     }
 }
 
+class TranscriptView extends TextFileView {
+    data: string = '';
+    cues: TranscriptCue[] = [];
+    filteredCues: TranscriptCue[] = [];
+    searchQuery: string = '';
+
+    getViewType(): string {
+        return TRANSCRIPT_VIEW_TYPE;
+    }
+
+    getDisplayText(): string {
+        return this.file?.basename || 'Transcript';
+    }
+
+    getIcon(): string {
+        return 'captions';
+    }
+
+    onOpen(): Promise<void> {
+        this.contentEl.addClass('transcript-view-container');
+        return Promise.resolve();
+    }
+
+    onClose(): Promise<void> {
+        this.contentEl.empty();
+        return Promise.resolve();
+    }
+
+    getViewData(): string {
+        return this.data;
+    }
+
+    setViewData(data: string, _clear: boolean): void {
+        this.data = data;
+        this.cues = parseTranscript(data, this.getTranscriptFormat());
+        this.applyFilters();
+        this.renderTranscript();
+    }
+
+    clear(): void {
+        this.data = '';
+        this.cues = [];
+        this.filteredCues = [];
+        this.contentEl.empty();
+    }
+
+    getTranscriptFormat(): TranscriptFormat {
+        return this.file?.extension?.toLowerCase() === 'srt' ? 'srt' : 'vtt';
+    }
+
+    applyFilters(): void {
+        const query = this.searchQuery.toLowerCase();
+
+        this.filteredCues = this.cues.filter((cue) => {
+            if (!query) return true;
+
+            return cue.text.toLowerCase().includes(query) ||
+                cue.start.toLowerCase().includes(query) ||
+                cue.end.toLowerCase().includes(query);
+        });
+    }
+
+    renderTranscript(): void {
+        this.contentEl.empty();
+
+        const container = this.contentEl.createDiv({ cls: 'transcript-view-content' });
+        const toolbar = container.createDiv({ cls: 'transcript-view-toolbar' });
+
+        const searchInput = toolbar.createEl('input', {
+            cls: 'transcript-view-search',
+            attr: { type: 'text', placeholder: 'Filter transcript...' }
+        });
+        searchInput.value = this.searchQuery;
+
+        const info = toolbar.createDiv({ cls: 'transcript-view-info' });
+        const cueList = container.createDiv({ cls: 'transcript-cues' });
+
+        searchInput.addEventListener('input', () => {
+            this.searchQuery = searchInput.value;
+            this.applyFilters();
+            this.renderTranscriptCues(cueList, info);
+        });
+
+        this.renderTranscriptCues(cueList, info);
+    }
+
+    renderTranscriptCues(container: HTMLElement, info: HTMLElement): void {
+        container.empty();
+
+        if (this.filteredCues.length === 0) {
+            container.createDiv({ cls: 'transcript-empty', text: 'No matching transcript cues' });
+            info.textContent = `0 of ${this.cues.length.toLocaleString()} cues`;
+            return;
+        }
+
+        info.textContent = `${this.filteredCues.length.toLocaleString()} of ${this.cues.length.toLocaleString()} cues`;
+
+        for (const cue of this.filteredCues) {
+            const cueEl = container.createDiv({ cls: 'transcript-cue' });
+            const metaEl = cueEl.createDiv({ cls: 'transcript-cue-meta' });
+            metaEl.createSpan({ cls: 'transcript-cue-number', text: String(cue.number) });
+            metaEl.createSpan({ cls: 'transcript-cue-time', text: `${cue.start} -> ${cue.end}` });
+
+            const textEl = cueEl.createDiv({ cls: 'transcript-cue-text' });
+            this.renderTranscriptText(textEl, cue.text || ' ');
+        }
+    }
+
+    renderTranscriptText(parent: HTMLElement, text: string): void {
+        const lines = text.split('\n');
+
+        lines.forEach((line, index) => {
+            if (index > 0) {
+                parent.createEl('br');
+            }
+
+            for (const segment of this.findTextMatches(line, this.searchQuery)) {
+                if (segment.className) {
+                    parent.createSpan({ text: segment.text, cls: segment.className });
+                } else {
+                    parent.appendText(segment.text);
+                }
+            }
+        });
+    }
+
+    findTextMatches(text: string, query: string): { text: string, className?: string }[] {
+        if (!query) return [{ text }];
+
+        const segments: { text: string, className?: string }[] = [];
+        const lowerText = text.toLowerCase();
+        const lowerQuery = query.toLowerCase();
+        let position = 0;
+        let index = lowerText.indexOf(lowerQuery);
+
+        while (index !== -1) {
+            if (index > position) {
+                segments.push({ text: text.slice(position, index) });
+            }
+
+            segments.push({
+                text: text.slice(index, index + query.length),
+                className: 'transcript-highlight'
+            });
+            position = index + query.length;
+            index = lowerText.indexOf(lowerQuery, position);
+        }
+
+        if (position < text.length) {
+            segments.push({ text: text.slice(position) });
+        }
+
+        return segments.length > 0 ? segments : [{ text }];
+    }
+}
+
 export default class CSVViewerPlugin extends Plugin {
     settings: CSVViewerSettings;
 
@@ -555,6 +716,7 @@ export default class CSVViewerPlugin extends Plugin {
 
         this.registerView(CSV_VIEW_TYPE, (leaf) => new CSVView(leaf));
         this.registerView(LOG_VIEW_TYPE, (leaf) => new LogView(leaf));
+        this.registerView(TRANSCRIPT_VIEW_TYPE, (leaf) => new TranscriptView(leaf));
 
         if (this.settings.enableCsvViewer) {
             this.registerExtensions(['csv'], CSV_VIEW_TYPE);
@@ -562,6 +724,14 @@ export default class CSVViewerPlugin extends Plugin {
 
         if (this.settings.enableLogViewer) {
             this.registerExtensions(['log'], LOG_VIEW_TYPE);
+        }
+
+        if (this.settings.enableVttViewer) {
+            this.registerExtensions(['vtt'], TRANSCRIPT_VIEW_TYPE);
+        }
+
+        if (this.settings.enableSrtViewer) {
+            this.registerExtensions(['srt'], TRANSCRIPT_VIEW_TYPE);
         }
 
         this.addSettingTab(new CSVViewerSettingTab(this.app, this));
@@ -587,7 +757,9 @@ export default class CSVViewerPlugin extends Plugin {
         const candidate = settings as Partial<Record<keyof CSVViewerSettings, unknown>>;
         return {
             ...(typeof candidate.enableCsvViewer === 'boolean' ? { enableCsvViewer: candidate.enableCsvViewer } : {}),
-            ...(typeof candidate.enableLogViewer === 'boolean' ? { enableLogViewer: candidate.enableLogViewer } : {})
+            ...(typeof candidate.enableLogViewer === 'boolean' ? { enableLogViewer: candidate.enableLogViewer } : {}),
+            ...(typeof candidate.enableVttViewer === 'boolean' ? { enableVttViewer: candidate.enableVttViewer } : {}),
+            ...(typeof candidate.enableSrtViewer === 'boolean' ? { enableSrtViewer: candidate.enableSrtViewer } : {})
         };
     }
 }
@@ -622,6 +794,28 @@ class CSVViewerSettingTab extends PluginSettingTab {
                 .setValue(this.plugin.settings.enableLogViewer)
                 .onChange(async (value) => {
                     this.plugin.settings.enableLogViewer = value;
+                    await this.plugin.saveSettings();
+                    new Notice('Reload this plugin for file type changes to take effect.');
+                }));
+
+        new Setting(containerEl)
+            .setName('.vtt transcript viewer')
+            .setDesc('Open .vtt files in the transcript viewer.')
+            .addToggle((toggle) => toggle
+                .setValue(this.plugin.settings.enableVttViewer)
+                .onChange(async (value) => {
+                    this.plugin.settings.enableVttViewer = value;
+                    await this.plugin.saveSettings();
+                    new Notice('Reload this plugin for file type changes to take effect.');
+                }));
+
+        new Setting(containerEl)
+            .setName('.srt transcript viewer')
+            .setDesc('Open .srt files in the transcript viewer.')
+            .addToggle((toggle) => toggle
+                .setValue(this.plugin.settings.enableSrtViewer)
+                .onChange(async (value) => {
+                    this.plugin.settings.enableSrtViewer = value;
                     await this.plugin.saveSettings();
                     new Notice('Reload this plugin for file type changes to take effect.');
                 }));
